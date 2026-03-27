@@ -1,6 +1,7 @@
 package com.ezinnovations.ezlinks.command;
 
 import com.ezinnovations.ezlinks.EzLinksPlugin;
+import com.ezinnovations.ezlinks.model.ReloadReport;
 import com.ezinnovations.ezlinks.util.MessageComponentUtil;
 import io.papermc.paper.command.brigadier.BasicCommand;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -26,8 +27,28 @@ public class EzLinksAdminCommand implements BasicCommand {
         }
 
         if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
-            plugin.reloadPluginConfiguration();
+            ReloadReport report = plugin.reloadPluginConfiguration();
             sender.sendMessage(MessageComponentUtil.deserializeLegacy(plugin.getRuntimeConfigService().getConfig().messages().reloadSuccess()));
+            sender.sendMessage(MessageComponentUtil.deserializeLegacy("&7Command labels bound: &f"
+                    + report.bindingReport().boundLabelCount()));
+
+            if (report.bindingReport().conflicts().isEmpty()) {
+                sender.sendMessage(MessageComponentUtil.deserializeLegacy("&7Command conflicts: &anone"));
+            } else {
+                sender.sendMessage(MessageComponentUtil.deserializeLegacy("&7Command conflicts: &c"
+                        + report.bindingReport().conflicts().size()));
+                report.bindingReport().conflicts().stream()
+                        .limit(3)
+                        .forEach(conflict -> sender.sendMessage(MessageComponentUtil.deserializeLegacy("&8- &c" + conflict)));
+                if (report.bindingReport().conflicts().size() > 3) {
+                    sender.sendMessage(MessageComponentUtil.deserializeLegacy("&8- &7...and "
+                            + (report.bindingReport().conflicts().size() - 3) + " more"));
+                }
+            }
+
+            String syncStatusColor = report.syncResult().succeeded() ? "&a" : "&e";
+            sender.sendMessage(MessageComponentUtil.deserializeLegacy("&7Command sync: " + syncStatusColor
+                    + report.syncResult().detail()));
             return;
         }
 
