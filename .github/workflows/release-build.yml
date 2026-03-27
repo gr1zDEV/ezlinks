@@ -1,0 +1,35 @@
+name: Build on Tag Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build plugin with Maven
+        run: mvn -B clean package
+
+      - name: Upload built jar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ezlinks-${{ github.ref_name }}
+          path: target/*.jar
+          if-no-files-found: error
