@@ -39,9 +39,18 @@ public class EzLinksPlugin extends JavaPlugin {
         PluginConfig config = configLoaderService.load();
         runtimeConfigService.setConfig(config);
 
-        // On modern Paper this refreshes brigadier trees for clients after command changes.
-        getServer().syncCommands();
+        syncCommandsIfAvailable();
         getLogger().info("EzLinks reloaded; loaded " + config.commands().size() + " dynamic command(s).");
+    }
+
+    private void syncCommandsIfAvailable() {
+        // Some API variants do not declare syncCommands() on org.bukkit.Server at compile time.
+        // Call it reflectively when present to keep compatibility across Paper/Bukkit targets.
+        try {
+            getServer().getClass().getMethod("syncCommands").invoke(getServer());
+        } catch (ReflectiveOperationException ignored) {
+            // No-op: command registration still works; clients pick up changes on reconnect/rejoin.
+        }
     }
 
     public RuntimeConfigService getRuntimeConfigService() {
