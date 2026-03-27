@@ -1,0 +1,26 @@
+messages:
+  reload-success: "&aEzLinks config reloaded."
+  no-permission: "&cYou do not have permission to do that."
+  player-only: "&cOnly players can use this command."
+  unknown-subcommand: "&cUnknown subcommand. Try &f/ezlinks reload"
+
+commands:
+  discord:
+    permission: "ezlinks.command.discord"
+    aliases:
+      - dc
+    sound: "pling"
+    lines:
+      - text: "&r&#00A4FCᴊᴏɪɴ ᴛʜᴇ &#feb807&lGR8&#00A4FC&lSMP&r &#00A4FCᴄᴏᴍᴍᴜɴɪᴛʏ"
+      - text: "&#00A4FC&l•&r &f&ndiscord.gg/gr8smp"
+        click:
+          action: "open_url"
+          value: "https://discord.gg/gr8smp"
+        hover: "&7Click to open the Discord"
+
+sounds:
+  pling:
+    enabled: true
+    sound: BLOCK_NOTE_BLOCK_PLING
+    volume: 0.5
+    pitch: 1.0
