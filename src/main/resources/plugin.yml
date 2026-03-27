@@ -1,0 +1,12 @@
+name: EzLinks
+version: '${project.version}'
+main: com.ezinnovations.ezlinks.EzLinksPlugin
+api-version: '1.21'
+folia-supported: true
+authors:
+  - EzInnovations
+description: Dynamic chat-link commands for Paper/Folia.
+permissions:
+  ezlinks.admin:
+    description: Allows using /ezlinks reload
+    default: op
