@@ -36,6 +36,11 @@ public class EzLinksAdminCommand implements BasicCommand {
 
     @Override
     public Collection<String> suggest(CommandSourceStack commandSourceStack, String[] args) {
+        CommandSender sender = commandSourceStack.getSender();
+        if (!sender.hasPermission("ezlinks.admin")) {
+            return List.of();
+        }
+
         if (args.length <= 1) {
             java.util.ArrayList<String> suggestions = new java.util.ArrayList<>();
             suggestions.add("reload");

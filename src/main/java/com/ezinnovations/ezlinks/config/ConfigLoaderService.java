@@ -13,11 +13,14 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public class ConfigLoaderService {
     private final JavaPlugin plugin;
@@ -71,11 +74,19 @@ public class ConfigLoaderService {
 
     private Map<String, ConfiguredCommand> loadCommands(ConfigurationSection commandsSection) {
         Map<String, ConfiguredCommand> commands = new LinkedHashMap<>();
+        Map<String, String> occupiedLabels = new HashMap<>();
         if (commandsSection == null) {
             return commands;
         }
 
         for (String commandName : commandsSection.getKeys(false)) {
+            String normalizedCommandName = normalizeCommandLabel(commandName);
+            String collidingOwner = occupiedLabels.get(normalizedCommandName);
+            if (collidingOwner != null) {
+                plugin.getLogger().warning("Skipping command '" + commandName + "' because its name collides with '" + collidingOwner + "'.");
+                continue;
+            }
+
             ConfigurationSection section = commandsSection.getConfigurationSection(commandName);
             if (section == null) {
                 plugin.getLogger().warning("Skipping command '" + commandName + "' because it is not a section.");
@@ -92,10 +103,52 @@ public class ConfigLoaderService {
                 continue;
             }
 
-            commands.put(commandName, new ConfiguredCommand(commandName, emptyToNull(permission), aliases, emptyToNull(soundKey), lines));
+            List<String> sanitizedAliases = sanitizeAliases(commandName, aliases, occupiedLabels);
+
+            occupiedLabels.put(normalizedCommandName, commandName);
+            commands.put(commandName, new ConfiguredCommand(commandName, emptyToNull(permission), sanitizedAliases, emptyToNull(soundKey), lines));
         }
 
         return commands;
+    }
+
+    private List<String> sanitizeAliases(String commandName, List<String> aliases, Map<String, String> occupiedLabels) {
+        List<String> sanitizedAliases = new ArrayList<>();
+        Set<String> seenInCommand = new HashSet<>();
+        String normalizedCommandName = normalizeCommandLabel(commandName);
+
+        for (String alias : aliases) {
+            if (alias == null || alias.isBlank()) {
+                plugin.getLogger().warning("Ignoring blank alias in command '" + commandName + "'.");
+                continue;
+            }
+
+            String normalizedAlias = normalizeCommandLabel(alias);
+            if (normalizedAlias.equals(normalizedCommandName)) {
+                plugin.getLogger().warning("Ignoring alias '" + alias + "' in command '" + commandName + "' because it duplicates the command name.");
+                continue;
+            }
+
+            if (!seenInCommand.add(normalizedAlias)) {
+                plugin.getLogger().warning("Ignoring alias '" + alias + "' in command '" + commandName + "' because it is duplicated in the same command.");
+                continue;
+            }
+
+            String collidingOwner = occupiedLabels.get(normalizedAlias);
+            if (collidingOwner != null) {
+                plugin.getLogger().warning("Ignoring alias '" + alias + "' in command '" + commandName + "' because it collides with '" + collidingOwner + "'.");
+                continue;
+            }
+
+            occupiedLabels.put(normalizedAlias, commandName);
+            sanitizedAliases.add(alias);
+        }
+
+        return sanitizedAliases;
+    }
+
+    private String normalizeCommandLabel(String label) {
+        return label.toLowerCase(Locale.ROOT);
     }
 
     @SuppressWarnings("unchecked")
