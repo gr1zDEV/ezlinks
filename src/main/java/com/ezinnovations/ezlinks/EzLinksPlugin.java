@@ -1,7 +1,10 @@
 package com.ezinnovations.ezlinks;
 
 import com.ezinnovations.ezlinks.config.ConfigLoaderService;
+import com.ezinnovations.ezlinks.model.CommandBindingReport;
+import com.ezinnovations.ezlinks.model.CommandSyncResult;
 import com.ezinnovations.ezlinks.model.PluginConfig;
+import com.ezinnovations.ezlinks.model.ReloadReport;
 import com.ezinnovations.ezlinks.service.CommandExecutionService;
 import com.ezinnovations.ezlinks.service.CommandRegistrationService;
 import com.ezinnovations.ezlinks.service.RuntimeConfigService;
@@ -26,30 +29,50 @@ public class EzLinksPlugin extends JavaPlugin {
         this.commandRegistrationService = new CommandRegistrationService(this, runtimeConfigService, commandExecutionService);
 
         PluginConfig config = configLoaderService.load();
-        runtimeConfigService.setConfig(config);
+        CommandBindingReport bindingReport = runtimeConfigService.setConfig(config);
 
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
                 commandRegistrationService.registerCommands(event.registrar())
         );
 
-        getLogger().info("EzLinks enabled with " + config.commands().size() + " dynamic command(s).");
+        getLogger().info("EzLinks enabled with " + config.commands().size() + " dynamic command(s), bound "
+                + bindingReport.boundLabelCount() + " labels.");
+        if (!bindingReport.conflicts().isEmpty()) {
+            getLogger().warning("Command binding conflicts at startup: " + String.join(" | ", bindingReport.conflicts()));
+        }
     }
 
-    public void reloadPluginConfiguration() {
+    public ReloadReport reloadPluginConfiguration() {
         PluginConfig config = configLoaderService.load();
-        runtimeConfigService.setConfig(config);
+        CommandBindingReport bindingReport = runtimeConfigService.setConfig(config);
 
-        syncCommandsIfAvailable();
-        getLogger().info("EzLinks reloaded; loaded " + config.commands().size() + " dynamic command(s).");
+        CommandSyncResult syncResult = syncCommandsIfAvailable();
+        getLogger().info("EzLinks reloaded; loaded " + config.commands().size() + " dynamic command(s), bound "
+                + bindingReport.boundLabelCount() + " labels.");
+        if (!bindingReport.conflicts().isEmpty()) {
+            getLogger().warning("Command binding conflicts on reload: " + String.join(" | ", bindingReport.conflicts()));
+        }
+        if (syncResult.succeeded()) {
+            getLogger().info(syncResult.detail());
+        } else {
+            getLogger().warning(syncResult.detail());
+        }
+
+        return new ReloadReport(bindingReport, syncResult);
     }
 
-    private void syncCommandsIfAvailable() {
+    private CommandSyncResult syncCommandsIfAvailable() {
         // Some API variants do not declare syncCommands() on org.bukkit.Server at compile time.
         // Call it reflectively when present to keep compatibility across Paper/Bukkit targets.
         try {
             getServer().getClass().getMethod("syncCommands").invoke(getServer());
-        } catch (ReflectiveOperationException ignored) {
-            // No-op: command registration still works; clients pick up changes on reconnect/rejoin.
+            return new CommandSyncResult(true, true, "Command sync invoked successfully.");
+        } catch (NoSuchMethodException ex) {
+            return new CommandSyncResult(false, false,
+                    "Command sync unavailable: server does not expose syncCommands().");
+        } catch (ReflectiveOperationException ex) {
+            return new CommandSyncResult(true, false,
+                    "Command sync failed via reflection: " + ex.getClass().getSimpleName() + " - " + ex.getMessage());
         }
     }
 
